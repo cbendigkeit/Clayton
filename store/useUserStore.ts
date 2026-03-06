@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { authService } from '@/services/authService';
+import { notificationService } from '@/services/notificationService';
 import { useToastStore } from './useToastStore';
 import { hapticSuccess } from '@/utils/haptics';
 import type { User, Charity, NotificationPreferences, ConnectedAccount } from '@/types';
@@ -26,6 +27,8 @@ interface UserState {
 
 function userFromSession(session: Session): User {
   const su = session.user;
+  // Profile extras are synced to user_metadata.profile by authService.syncProfile
+  const profile = su.user_metadata?.profile ?? {};
   return {
     id: su.id,
     name:
@@ -34,9 +37,9 @@ function userFromSession(session: Session): User {
       su.email?.split('@')[0] ??
       'User',
     email: su.email ?? '',
-    defaultCharity: null,
-    connectedAccounts: [],
-    notifications: { violations: true, weeklySummary: true },
+    defaultCharity: profile.defaultCharity ?? null,
+    connectedAccounts: profile.connectedAccounts ?? [],
+    notifications: profile.notifications ?? { violations: true, weeklySummary: true },
   };
 }
 
@@ -115,14 +118,26 @@ export const useUserStore = create<UserState>()(
       setDefaultCharity: (charity) => {
         const { user } = get();
         if (!user) return;
-        set({ user: { ...user, defaultCharity: charity } });
+        const updated = { ...user, defaultCharity: charity };
+        set({ user: updated });
+        authService.syncProfile({
+          defaultCharity: charity,
+          connectedAccounts: updated.connectedAccounts,
+          notifications: updated.notifications,
+        });
       },
 
       addConnectedAccount: (account) => {
         const { user } = get();
         if (!user) return;
         if (user.connectedAccounts.find((a) => a.id === account.id)) return;
-        set({ user: { ...user, connectedAccounts: [...user.connectedAccounts, account] } });
+        const accounts = [...user.connectedAccounts, account];
+        set({ user: { ...user, connectedAccounts: accounts } });
+        authService.syncProfile({
+          defaultCharity: user.defaultCharity,
+          connectedAccounts: accounts,
+          notifications: user.notifications,
+        });
         hapticSuccess();
         useToastStore.getState().show('Bank account connected');
       },
@@ -130,7 +145,21 @@ export const useUserStore = create<UserState>()(
       updateNotifications: (prefs) => {
         const { user } = get();
         if (!user) return;
-        set({ user: { ...user, notifications: { ...user.notifications, ...prefs } } });
+        const notifications = { ...user.notifications, ...prefs };
+        set({ user: { ...user, notifications } });
+        authService.syncProfile({
+          defaultCharity: user.defaultCharity,
+          connectedAccounts: user.connectedAccounts,
+          notifications,
+        });
+        // Keep the weekly summary notification in sync with the toggle
+        if ('weeklySummary' in prefs) {
+          if (prefs.weeklySummary) {
+            notificationService.scheduleWeeklySummary();
+          } else {
+            notificationService.cancelWeeklySummary();
+          }
+        }
       },
     }),
     {

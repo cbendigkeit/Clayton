@@ -6,7 +6,9 @@ import { findViolatingTransactions } from '@/utils/transactions';
 import { calculatePledgeAmount } from '@/utils/tvm';
 import { usePledgeStore } from './usePledgeStore';
 import { useToastStore } from './useToastStore';
+import { useUserStore } from './useUserStore';
 import { hapticSuccess, hapticLight } from '@/utils/haptics';
+import { notificationService } from '@/services/notificationService';
 
 interface HabitState {
   habits: Habit[];
@@ -82,6 +84,8 @@ export const useHabitStore = create<HabitState>()(
         const { habits } = get();
         const violations = findViolatingTransactions(transactions, habits);
         const { addPledge } = usePledgeStore.getState();
+        const notificationsOn =
+          useUserStore.getState().user?.notifications?.violations ?? true;
 
         // Update habit stats
         const habitUpdates: Record<string, Partial<Habit>> = {};
@@ -90,6 +94,11 @@ export const useHabitStore = create<HabitState>()(
             totalSpent: habit.totalSpent,
             violationCount: habit.violationCount,
           };
+          const pledgeAmount = calculatePledgeAmount(
+            transaction.amount,
+            habit.pledgeType,
+            habit.pledgeAmount
+          );
           habitUpdates[habit.id] = {
             totalSpent: (existing.totalSpent ?? 0) + transaction.amount,
             violationCount: (existing.violationCount ?? 0) + 1,
@@ -102,14 +111,19 @@ export const useHabitStore = create<HabitState>()(
             habitName: habit.name,
             merchantName: transaction.merchantName ?? 'Unknown',
             transactionAmount: transaction.amount,
-            amount: calculatePledgeAmount(
-              transaction.amount,
-              habit.pledgeType,
-              habit.pledgeAmount
-            ),
+            amount: pledgeAmount,
             charityId: habit.charityId,
             triggeredAt: transaction.date,
           });
+
+          // Fire a local notification if the user has them enabled
+          if (notificationsOn) {
+            notificationService.notifyViolation(
+              habit.name,
+              transaction.merchantName ?? 'Unknown',
+              pledgeAmount
+            );
+          }
         }
 
         // Apply updates

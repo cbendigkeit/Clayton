@@ -6,6 +6,7 @@ jest.mock('@/services/authService', () => ({
     signInWithApple: jest.fn().mockResolvedValue({}),
     signOut: jest.fn().mockResolvedValue(undefined),
     getSession: jest.fn().mockResolvedValue(null),
+    syncProfile: jest.fn(),
     onAuthStateChange: jest.fn(() => ({
       data: { subscription: { unsubscribe: jest.fn() } },
     })),

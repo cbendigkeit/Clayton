@@ -1,3 +1,12 @@
+// Prevent Supabase from initializing (requires env vars not present in tests)
+jest.mock('@/services/supabase', () => ({ supabase: {} }));
+jest.mock('@/services/authService', () => ({
+  authService: { syncProfile: jest.fn(), onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })), getSession: jest.fn().mockResolvedValue(null) },
+}));
+jest.mock('@/services/notificationService', () => ({
+  notificationService: { notifyViolation: jest.fn(), scheduleWeeklySummary: jest.fn(), cancelWeeklySummary: jest.fn(), requestPermission: jest.fn().mockResolvedValue(true) },
+}));
+
 import { useHabitStore } from '../useHabitStore';
 import { usePledgeStore } from '../usePledgeStore';
 import type { CreateHabitInput, Transaction } from '@/types';

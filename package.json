@@ -25,6 +25,7 @@
     "expo-font": "~12.0.9",
     "expo-haptics": "^55.0.8",
     "expo-linking": "~6.3.1",
+    "expo-notifications": "^55.0.11",
     "expo-router": "~3.5.23",
     "expo-secure-store": "~13.0.2",
     "expo-splash-screen": "~0.27.5",
@@ -63,7 +64,8 @@
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1",
-      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock"
+      "^@react-native-async-storage/async-storage$": "@react-native-async-storage/async-storage/jest/async-storage-mock",
+      "^expo-notifications$": "<rootDir>/__mocks__/expo-notifications.js"
     },
     "transformIgnorePatterns": [
       "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-paper|react-native-chart-kit)"

@@ -1,11 +1,12 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button, Surface, ProgressBar } from 'react-native-paper';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserStore } from '@/store/useUserStore';
 import { PlaidLinkButton } from '@/components/PlaidLinkButton';
 import { CharityPicker } from '@/components/CharityPicker';
+import { notificationService } from '@/services/notificationService';
 import type { Charity } from '@/types';
 
 const STEPS = ['Welcome', 'Connect Bank', 'Pick Charity', 'All Set'];
@@ -159,6 +160,14 @@ function PickCharityStep({
 }
 
 function AllSetStep({ onFinish }: { onFinish: () => void }) {
+  const [notifGranted, setNotifGranted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Ask for permission as soon as the user reaches this step.
+    // The OS shows its own system dialog; we just record the outcome.
+    notificationService.requestPermission().then(setNotifGranted);
+  }, []);
+
   return (
     <View style={styles.step}>
       <Text variant="displaySmall" style={styles.stepTitle}>
@@ -168,6 +177,13 @@ function AllSetStep({ onFinish }: { onFinish: () => void }) {
         Now create your first habit to start tracking. Every dollar you save
         compounds into something greater.
       </Text>
+      {notifGranted === false && (
+        <Surface style={styles.notifCallout} elevation={1}>
+          <Text variant="bodySmall" style={styles.notifText}>
+            Enable notifications later in Settings to get alerted when a habit is broken.
+          </Text>
+        </Surface>
+      )}
       <Button
         mode="contained"
         onPress={onFinish}
@@ -217,6 +233,18 @@ const styles = StyleSheet.create({
     color: '#495057',
     lineHeight: 24,
     marginBottom: 24,
+  },
+  notifCallout: {
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: '#FFF8E1',
+    marginBottom: 24,
+    borderLeftWidth: 3,
+    borderLeftColor: '#D4A017',
+  },
+  notifText: {
+    color: '#6C757D',
+    lineHeight: 20,
   },
   callout: {
     borderRadius: 12,
