@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Pledge } from '@/types';
+import { useToastStore } from './useToastStore';
+import { hapticSuccess } from '@/utils/haptics';
 
 interface AddPledgeInput {
   habitId: string;
@@ -40,6 +42,10 @@ export const usePledgeStore = create<PledgeState>()(
         set((state) => ({
           pledges: state.pledges.map((p) => (p.id === id ? { ...p, status } : p)),
         }));
+        if (status === 'fulfilled') {
+          hapticSuccess();
+          useToastStore.getState().show('Pledge fulfilled — thank you for giving!');
+        }
       },
 
       clearFulfilledPledges: () => {

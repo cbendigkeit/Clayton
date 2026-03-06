@@ -5,6 +5,8 @@ import type { Habit, CreateHabitInput, Transaction } from '@/types';
 import { findViolatingTransactions } from '@/utils/transactions';
 import { calculatePledgeAmount } from '@/utils/tvm';
 import { usePledgeStore } from './usePledgeStore';
+import { useToastStore } from './useToastStore';
+import { hapticSuccess, hapticLight } from '@/utils/haptics';
 
 interface HabitState {
   habits: Habit[];
@@ -38,6 +40,8 @@ export const useHabitStore = create<HabitState>()(
           bestStreak: 0,
         };
         set((state) => ({ habits: [...state.habits, habit] }));
+        hapticSuccess();
+        useToastStore.getState().show('Habit created');
       },
 
       updateHabit: (id: string, updates: Partial<Habit>) => {
@@ -49,6 +53,7 @@ export const useHabitStore = create<HabitState>()(
       deleteHabit: (id: string) => {
         usePledgeStore.getState().clearPledgesForHabit(id);
         set((state) => ({ habits: state.habits.filter((h) => h.id !== id) }));
+        hapticLight();
       },
 
       toggleHabit: (id: string) => {
@@ -57,6 +62,7 @@ export const useHabitStore = create<HabitState>()(
             h.id === id ? { ...h, isActive: !h.isActive } : h
           ),
         }));
+        hapticLight();
       },
 
       fetchTransactions: async () => {

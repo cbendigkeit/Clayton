@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { authService } from '@/services/authService';
+import { useToastStore } from './useToastStore';
+import { hapticSuccess } from '@/utils/haptics';
 import type { User, Charity, NotificationPreferences, ConnectedAccount } from '@/types';
 
 interface UserState {
@@ -121,6 +123,8 @@ export const useUserStore = create<UserState>()(
         if (!user) return;
         if (user.connectedAccounts.find((a) => a.id === account.id)) return;
         set({ user: { ...user, connectedAccounts: [...user.connectedAccounts, account] } });
+        hapticSuccess();
+        useToastStore.getState().show('Bank account connected');
       },
 
       updateNotifications: (prefs) => {

@@ -1,4 +1,4 @@
-import { View, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, Linking, Alert } from 'react-native';
 import { Text, Surface, Chip, Button, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { format } from 'date-fns';
@@ -102,6 +102,21 @@ export default function PledgesScreen() {
 
 function PledgeRow({ pledge }: { pledge: Pledge }) {
   const { updatePledgeStatus } = usePledgeStore();
+
+  const confirmFulfill = () => {
+    Alert.alert(
+      'Mark as Fulfilled',
+      `Confirm you've donated ${formatCurrency(pledge.amount)} to your charity?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: () => updatePledgeStatus(pledge.id, 'fulfilled'),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.pledgeRow}>
       <View style={styles.pledgeLeft}>
@@ -126,7 +141,7 @@ function PledgeRow({ pledge }: { pledge: Pledge }) {
           <Button
             mode="text"
             compact
-            onPress={() => updatePledgeStatus(pledge.id, 'fulfilled')}
+            onPress={confirmFulfill}
             style={styles.fulfillButton}
           >
             Mark Paid

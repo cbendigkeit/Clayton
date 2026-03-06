@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import { PaperProvider, MD3LightTheme } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useUserStore } from '@/store/useUserStore';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ToastSnackbar } from '@/components/ToastSnackbar';
 
 const CovenantTheme = {
   ...MD3LightTheme,
@@ -28,19 +30,22 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <PaperProvider theme={CovenantTheme}>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          {!isAuthenticated ? (
-            <Stack.Screen name="(auth)" />
-          ) : !isOnboarded ? (
-            <Stack.Screen name="onboarding" />
-          ) : (
-            <Stack.Screen name="(tabs)" />
-          )}
-        </Stack>
-      </PaperProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <PaperProvider theme={CovenantTheme}>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }}>
+            {!isAuthenticated ? (
+              <Stack.Screen name="(auth)" />
+            ) : !isOnboarded ? (
+              <Stack.Screen name="onboarding" />
+            ) : (
+              <Stack.Screen name="(tabs)" />
+            )}
+          </Stack>
+          <ToastSnackbar />
+        </PaperProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
