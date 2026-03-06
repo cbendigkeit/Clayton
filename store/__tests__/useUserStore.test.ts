@@ -1,8 +1,36 @@
+// Mock authService so tests don't hit Supabase
+jest.mock('@/services/authService', () => ({
+  authService: {
+    signInWithEmail: jest.fn().mockResolvedValue({}),
+    signUpWithEmail: jest.fn().mockResolvedValue({}),
+    signInWithApple: jest.fn().mockResolvedValue({}),
+    signOut: jest.fn().mockResolvedValue(undefined),
+    getSession: jest.fn().mockResolvedValue(null),
+    onAuthStateChange: jest.fn(() => ({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    })),
+  },
+}));
+
 import { useUserStore } from '../useUserStore';
-import type { Charity, ConnectedAccount } from '@/types';
+import type { Charity, ConnectedAccount, User } from '@/types';
+import { authService } from '@/services/authService';
+
+const MOCK_USER: User = {
+  id: 'u1',
+  name: 'test',
+  email: 'test@example.com',
+  defaultCharity: null,
+  connectedAccounts: [],
+  notifications: { violations: true, weeklySummary: true },
+};
 
 function resetStore() {
   useUserStore.setState({ user: null, isAuthenticated: false, isOnboarded: false });
+}
+
+function setLoggedIn(overrides?: Partial<User>) {
+  useUserStore.setState({ user: { ...MOCK_USER, ...overrides }, isAuthenticated: true });
 }
 
 const charity: Charity = {
@@ -24,49 +52,43 @@ describe('useUserStore', () => {
   beforeEach(resetStore);
 
   describe('login', () => {
-    it('sets user and isAuthenticated', async () => {
+    it('calls authService.signInWithEmail with the provided credentials', async () => {
       await useUserStore.getState().login('test@example.com', 'password');
-      const { user, isAuthenticated, isOnboarded } = useUserStore.getState();
-      expect(isAuthenticated).toBe(true);
-      expect(isOnboarded).toBe(true);
-      expect(user?.email).toBe('test@example.com');
-      expect(user?.name).toBe('test');
+      expect(authService.signInWithEmail).toHaveBeenCalledWith('test@example.com', 'password');
     });
   });
 
   describe('signup', () => {
-    it('sets user and isAuthenticated but not isOnboarded', async () => {
+    it('calls authService.signUpWithEmail with name, email, password', async () => {
       await useUserStore.getState().signup('Alice', 'alice@example.com', 'pw');
-      const { user, isAuthenticated, isOnboarded } = useUserStore.getState();
-      expect(isAuthenticated).toBe(true);
-      expect(isOnboarded).toBe(false);
-      expect(user?.name).toBe('Alice');
-      expect(user?.email).toBe('alice@example.com');
+      expect(authService.signUpWithEmail).toHaveBeenCalledWith('Alice', 'alice@example.com', 'pw');
+    });
+  });
+
+  describe('signInWithApple', () => {
+    it('calls authService.signInWithApple', async () => {
+      await useUserStore.getState().signInWithApple();
+      expect(authService.signInWithApple).toHaveBeenCalled();
     });
   });
 
   describe('logout', () => {
-    it('clears user and auth state', async () => {
-      await useUserStore.getState().login('a@b.com', 'pw');
-      useUserStore.getState().logout();
-      const { user, isAuthenticated, isOnboarded } = useUserStore.getState();
-      expect(user).toBeNull();
-      expect(isAuthenticated).toBe(false);
-      expect(isOnboarded).toBe(false);
+    it('calls authService.signOut', async () => {
+      await useUserStore.getState().logout();
+      expect(authService.signOut).toHaveBeenCalled();
     });
   });
 
   describe('completeOnboarding', () => {
-    it('sets isOnboarded to true', async () => {
-      await useUserStore.getState().signup('Bob', 'b@b.com', 'pw');
+    it('sets isOnboarded to true', () => {
       useUserStore.getState().completeOnboarding();
       expect(useUserStore.getState().isOnboarded).toBe(true);
     });
   });
 
   describe('setDefaultCharity', () => {
-    it('sets defaultCharity on user', async () => {
-      await useUserStore.getState().login('a@b.com', 'pw');
+    it('sets defaultCharity on user', () => {
+      setLoggedIn();
       useUserStore.getState().setDefaultCharity(charity);
       expect(useUserStore.getState().user?.defaultCharity).toEqual(charity);
     });
@@ -78,14 +100,14 @@ describe('useUserStore', () => {
   });
 
   describe('addConnectedAccount', () => {
-    it('adds an account to the user', async () => {
-      await useUserStore.getState().login('a@b.com', 'pw');
+    it('adds an account to the user', () => {
+      setLoggedIn();
       useUserStore.getState().addConnectedAccount(account);
       expect(useUserStore.getState().user?.connectedAccounts).toHaveLength(1);
     });
 
-    it('does not add duplicate accounts', async () => {
-      await useUserStore.getState().login('a@b.com', 'pw');
+    it('does not add duplicate accounts', () => {
+      setLoggedIn();
       useUserStore.getState().addConnectedAccount(account);
       useUserStore.getState().addConnectedAccount(account);
       expect(useUserStore.getState().user?.connectedAccounts).toHaveLength(1);
@@ -98,8 +120,8 @@ describe('useUserStore', () => {
   });
 
   describe('updateNotifications', () => {
-    it('merges notification preferences', async () => {
-      await useUserStore.getState().login('a@b.com', 'pw');
+    it('merges notification preferences', () => {
+      setLoggedIn();
       useUserStore.getState().updateNotifications({ weeklySummary: false });
       expect(useUserStore.getState().user?.notifications.violations).toBe(true);
       expect(useUserStore.getState().user?.notifications.weeklySummary).toBe(false);

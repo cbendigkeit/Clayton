@@ -1,9 +1,10 @@
-import { View, StyleSheet, Image } from 'react-native';
-import { Text, Button, TextInput, Surface } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
+import { Text, Button, TextInput, Surface, Divider } from 'react-native-paper';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserStore } from '@/store/useUserStore';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export default function LoginScreen() {
     try {
       await login(email, password);
       router.replace('/(tabs)');
-    } catch (e) {
+    } catch {
       setError('Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
@@ -41,9 +42,16 @@ export default function LoginScreen() {
       </View>
 
       <Surface style={styles.form} elevation={2}>
-        {error ? (
-          <Text style={styles.error}>{error}</Text>
-        ) : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <AppleSignInButton
+          onSuccess={() => router.replace('/(tabs)')}
+          onError={() => setError('Apple Sign In failed. Please try again.')}
+        />
+
+        <Divider style={styles.divider} />
+        <Text variant="labelSmall" style={styles.dividerLabel}>or sign in with email</Text>
+
         <TextInput
           label="Email"
           value={email}
@@ -107,6 +115,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     backgroundColor: '#FFFFFF',
+  },
+  divider: {
+    marginVertical: 16,
+  },
+  dividerLabel: {
+    color: '#ADB5BD',
+    textAlign: 'center',
+    marginBottom: 12,
+    marginTop: -4,
   },
   input: {
     marginBottom: 16,

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session } from '@supabase/supabase-js';
+import { authService } from '@/services/authService';
 import type { User, Charity, NotificationPreferences, ConnectedAccount } from '@/types';
 
 interface UserState {
@@ -8,13 +10,42 @@ interface UserState {
   isAuthenticated: boolean;
   isOnboarded: boolean;
 
+  /** Called once at app startup — subscribes to Supabase auth changes. */
+  initialize: () => () => void;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  signInWithApple: () => Promise<void>;
+  logout: () => Promise<void>;
   completeOnboarding: () => void;
   setDefaultCharity: (charity: Charity) => void;
   addConnectedAccount: (account: ConnectedAccount) => void;
   updateNotifications: (prefs: Partial<NotificationPreferences>) => void;
+}
+
+function userFromSession(session: Session): User {
+  const su = session.user;
+  return {
+    id: su.id,
+    name:
+      su.user_metadata?.full_name ??
+      su.user_metadata?.name ??
+      su.email?.split('@')[0] ??
+      'User',
+    email: su.email ?? '',
+    defaultCharity: null,
+    connectedAccounts: [],
+    notifications: { violations: true, weeklySummary: true },
+  };
+}
+
+/** Picks only the locally-stored profile extras from the persisted user slice. */
+function pickLocalExtras(user: User | null): Partial<User> {
+  if (!user) return {};
+  return {
+    defaultCharity: user.defaultCharity,
+    connectedAccounts: user.connectedAccounts,
+    notifications: user.notifications,
+  };
 }
 
 export const useUserStore = create<UserState>()(
@@ -24,73 +55,95 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
       isOnboarded: false,
 
-      login: async (email: string, _password: string) => {
-        // TODO: replace with real API call
-        const user: User = {
-          id: `user_${Date.now()}`,
-          name: email.split('@')[0],
-          email,
-          defaultCharity: null,
-          connectedAccounts: [],
-          notifications: { violations: true, weeklySummary: true },
-        };
-        set({ user, isAuthenticated: true, isOnboarded: true });
+      initialize: () => {
+        let unsubscribe = () => {};
+
+        // Restore existing session immediately
+        authService.getSession().then((session) => {
+          if (session) {
+            set({
+              user: { ...userFromSession(session), ...pickLocalExtras(get().user) },
+              isAuthenticated: true,
+            });
+          }
+        });
+
+        // Keep store in sync with all future auth events
+        const { data: { subscription } } = authService.onAuthStateChange(
+          (event, session) => {
+            if (session) {
+              set({
+                user: { ...userFromSession(session), ...pickLocalExtras(get().user) },
+                isAuthenticated: true,
+              });
+            } else {
+              set({ user: null, isAuthenticated: false, isOnboarded: false });
+            }
+          }
+        );
+
+        unsubscribe = () => subscription.unsubscribe();
+        return () => unsubscribe();
       },
 
-      signup: async (name: string, email: string, _password: string) => {
-        // TODO: replace with real API call
-        const user: User = {
-          id: `user_${Date.now()}`,
-          name,
-          email,
-          defaultCharity: null,
-          connectedAccounts: [],
-          notifications: { violations: true, weeklySummary: true },
-        };
-        set({ user, isAuthenticated: true, isOnboarded: false });
+      login: async (email, password) => {
+        await authService.signInWithEmail(email, password);
+        // onAuthStateChange listener above will update the store
       },
 
-      logout: () => {
-        set({ user: null, isAuthenticated: false, isOnboarded: false });
+      signup: async (name, email, password) => {
+        await authService.signUpWithEmail(name, email, password);
+        // Note: Supabase may require email confirmation before the session
+        // fires. If you disable email confirmation in Supabase dashboard,
+        // the SIGNED_IN event fires immediately and the listener handles it.
       },
 
-      completeOnboarding: () => {
-        set({ isOnboarded: true });
+      signInWithApple: async () => {
+        await authService.signInWithApple();
+        // onAuthStateChange listener above will update the store
       },
 
-      setDefaultCharity: (charity: Charity) => {
+      logout: async () => {
+        await authService.signOut();
+        // onAuthStateChange listener above will clear the store
+      },
+
+      completeOnboarding: () => set({ isOnboarded: true }),
+
+      setDefaultCharity: (charity) => {
         const { user } = get();
         if (!user) return;
         set({ user: { ...user, defaultCharity: charity } });
       },
 
-      addConnectedAccount: (account: ConnectedAccount) => {
+      addConnectedAccount: (account) => {
         const { user } = get();
         if (!user) return;
-        const existing = user.connectedAccounts.find((a) => a.id === account.id);
-        if (existing) return;
-        set({
-          user: {
-            ...user,
-            connectedAccounts: [...user.connectedAccounts, account],
-          },
-        });
+        if (user.connectedAccounts.find((a) => a.id === account.id)) return;
+        set({ user: { ...user, connectedAccounts: [...user.connectedAccounts, account] } });
       },
 
-      updateNotifications: (prefs: Partial<NotificationPreferences>) => {
+      updateNotifications: (prefs) => {
         const { user } = get();
         if (!user) return;
-        set({
-          user: {
-            ...user,
-            notifications: { ...user.notifications, ...prefs },
-          },
-        });
+        set({ user: { ...user, notifications: { ...user.notifications, ...prefs } } });
       },
     }),
     {
       name: 'covenant-user',
       storage: createJSONStorage(() => AsyncStorage),
+      // Only persist per-device profile extras. Supabase manages the session
+      // itself in AsyncStorage under its own key.
+      partialize: (state) => ({
+        isOnboarded: state.isOnboarded,
+        user: state.user
+          ? {
+              defaultCharity: state.user.defaultCharity,
+              connectedAccounts: state.user.connectedAccounts,
+              notifications: state.user.notifications,
+            }
+          : null,
+      }),
     }
   )
 );

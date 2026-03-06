@@ -1,9 +1,10 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Button, TextInput, Surface } from 'react-native-paper';
+import { Text, Button, TextInput, Surface, Divider } from 'react-native-paper';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserStore } from '@/store/useUserStore';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 
 export default function SignupScreen() {
   const [name, setName] = useState('');
@@ -12,6 +13,7 @@ export default function SignupScreen() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [emailConfirmPending, setEmailConfirmPending] = useState(false);
   const { signup } = useUserStore();
 
   const handleSignup = async () => {
@@ -31,13 +33,39 @@ export default function SignupScreen() {
     setError('');
     try {
       await signup(name, email, password);
-      router.replace('/onboarding');
-    } catch (e) {
+      // If Supabase email confirmation is enabled, the session won't fire yet.
+      // Show a prompt; if confirmation is disabled the auth listener handles it.
+      setEmailConfirmPending(true);
+    } catch {
       setError('Failed to create account. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (emailConfirmPending) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.confirmContainer}>
+          <Text variant="headlineMedium" style={styles.title}>Check your email</Text>
+          <Text variant="bodyLarge" style={styles.confirmText}>
+            We sent a confirmation link to{'\n'}{email}
+          </Text>
+          <Text variant="bodyMedium" style={styles.confirmSub}>
+            Click the link in that email to activate your account, then sign in here.
+          </Text>
+          <Button
+            mode="contained"
+            onPress={() => router.back()}
+            style={styles.button}
+            contentStyle={styles.buttonContent}
+          >
+            Back to Sign In
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -53,6 +81,15 @@ export default function SignupScreen() {
 
         <Surface style={styles.form} elevation={2}>
           {error ? <Text style={styles.error}>{error}</Text> : null}
+
+          <AppleSignInButton
+            onSuccess={() => router.replace('/onboarding')}
+            onError={() => setError('Apple Sign In failed. Please try again.')}
+          />
+
+          <Divider style={styles.divider} />
+          <Text variant="labelSmall" style={styles.dividerLabel}>or sign up with email</Text>
+
           <TextInput
             label="Full Name"
             value={name}
@@ -136,6 +173,15 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: '#FFFFFF',
   },
+  divider: {
+    marginVertical: 16,
+  },
+  dividerLabel: {
+    color: '#ADB5BD',
+    textAlign: 'center',
+    marginBottom: 12,
+    marginTop: -4,
+  },
   input: {
     marginBottom: 16,
   },
@@ -153,5 +199,24 @@ const styles = StyleSheet.create({
     color: '#D62828',
     marginBottom: 12,
     textAlign: 'center',
+  },
+  confirmContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  confirmText: {
+    color: '#B7E4C7',
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 12,
+    lineHeight: 26,
+  },
+  confirmSub: {
+    color: '#74C69D',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 22,
   },
 });

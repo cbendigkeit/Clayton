@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -19,7 +20,12 @@ const CovenantTheme = {
 };
 
 export default function RootLayout() {
-  const { isAuthenticated, isOnboarded } = useUserStore();
+  const { isAuthenticated, isOnboarded, initialize } = useUserStore();
+
+  useEffect(() => {
+    const cleanup = initialize();
+    return cleanup;
+  }, []);
 
   return (
     <SafeAreaProvider>
