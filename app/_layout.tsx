@@ -42,6 +42,16 @@ export default function RootLayout() {
             ) : (
               <Stack.Screen name="(tabs)" />
             )}
+            <Stack.Screen
+              name="privacy-policy"
+              options={{
+                headerShown: true,
+                title: 'Privacy Policy',
+                headerStyle: { backgroundColor: '#1B4332' },
+                headerTintColor: '#FFFFFF',
+                headerTitleStyle: { fontWeight: 'bold' },
+              }}
+            />
           </Stack>
           <ToastSnackbar />
         </PaperProvider>

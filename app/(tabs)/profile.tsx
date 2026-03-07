@@ -114,6 +114,18 @@ export default function ProfileScreen() {
           </List.Section>
         </Surface>
 
+        <Surface style={styles.section} elevation={1}>
+          <List.Section>
+            <List.Subheader style={styles.sectionLabel}>Legal</List.Subheader>
+            <List.Item
+              title="Privacy Policy"
+              left={(props) => <List.Icon {...props} icon="shield-lock-outline" color="#1B4332" />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+              onPress={() => router.push('/privacy-policy')}
+            />
+          </List.Section>
+        </Surface>
+
         <Button
           mode="outlined"
           onPress={handleLogout}
